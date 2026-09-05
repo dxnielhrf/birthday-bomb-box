@@ -94,7 +94,8 @@ All pins and tunables sit at the top of `code.py`:
 | `IR_SENSOR_PIN`, `I2S_*_PIN`, `I2C_*_PIN` | Pin assignments |
 | `LCD_I2C_ADDR` | LCD backpack address (`0x27` or `0x3F` are common) |
 | `TRIGGER_ON_LOW` | Whether "box open" reads as sensor `LOW` or `HIGH` — verify via REPL (see below) |
-| `DEBOUNCE_S` | Sensor debounce time |
+| `DEBOUNCE_S` | Debounce time for the initial open trigger |
+| `CLOSE_CONFIRM_SAMPLES` / `CLOSE_CONFIRM_INTERVAL_S` | How many consecutive "closed" samples (and how far apart) are required before a mid-sequence box-close is believed — raise these if a marginal/noisy sensor causes false aborts |
 | `BOMB_COUNTDOWN_S` | Countdown length in seconds |
 | `BOMB_START_BEEP_HZ` / `BOMB_END_BEEP_HZ` | Tick pitch range |
 | `POST_EXPLOSION_PAUSE_S` | Silence between explosion and Happy Birthday |
@@ -131,6 +132,31 @@ measure now — if the inversion is clean and consistent, flipping this one
 constant is enough. For a more robust long-term fix, cut a small slit/hole
 in the paper directly in front of the sensor lens (or build a small
 cardboard tunnel around it) so it points at the lid, not the paper.
+
+**Sequence resets itself mid-countdown/mid-song for no obvious reason.**
+Cheap IR obstacle sensors are comparator-based analog circuits close to
+their detection threshold; a brief current draw from the I2S amp on a
+shared 3.3V rail (or just general electrical noise) can make the sensor's
+output blip "closed" for a moment even though the box is still open. Since
+the box-close check runs on every short sleep during the sound sequence
+(so closing the lid can interrupt it instantly), a single glitchy reading
+was enough to trigger a false abort-and-restart. Fix: `box_confirmed_closed()`
+now requires `CLOSE_CONFIRM_SAMPLES` consecutive closed readings, spaced
+`CLOSE_CONFIRM_INTERVAL_S` apart, before treating it as real — raise those
+two constants further if it still happens on your sensor.
+
+**Detection range/reliability changes with ambient light, or the sensor
+only reacts at one extreme end of its potentiometer.** This points to a
+marginal or borderline sensor signal rather than something fixable in
+software — the Pico only reads the sensor's already-decided digital
+output, it can't compensate for a weak analog signal. Check, in this
+order: the emitter/receiver lenses are completely clean (even a thin haze
+or tape residue matters), all three wires (VCC/GND/OUT) are solidly
+connected under a wiggle test, and VCC measures a stable ~3.3V under load.
+If a sensor is still unreliable after all of that when tested standalone
+outside the box, it's likely a defective/degraded unit — consider
+swapping it for a fresh one, or replacing the mechanism entirely with a
+simple mechanical lid microswitch, which is immune to all of the above.
 
 ## Notes / gotchas found while building this
 

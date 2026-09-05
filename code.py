@@ -1,10 +1,7 @@
 """
 Birthday Box surprise trigger.
-Pico watches IR sensor; on box-open transition, plays a fake bomb
-countdown + explosion, then Happy Birthday, over an I2S amp and shows
-matching messages on the I2C LCD. Closing the box mid-sequence aborts
-everything immediately and resets to the ready state; re-opening always
-starts the whole sequence fresh.
+Pico watches IR sensor; on box-open transition, plays Happy Birthday
+over I2S amp and shows a message on the I2C LCD. Fires once per boot.
 """
 
 import time
@@ -32,12 +29,13 @@ LCD_I2C_ADDR = 0x27   # common PCF8574 backpack address; try 0x3F if this fails
 LCD_COLUMNS = 16
 LCD_ROWS = 2
 
-DEBOUNCE_S = 0.08          # 80ms debounce
-TRIGGER_ON_LOW = False     # measured: sensor reads False=closed, True=open
-                            # verify on your own sensor via the REPL (see README) —
-                            # wrapping the box in reflective gift paper right in
-                            # front of the sensor can invert this reading, since
-                            # the sensor then mostly sees the paper, not the lid
+DEBOUNCE_S = 0.08          # 80ms debounce for the initial open trigger
+CLOSE_CONFIRM_SAMPLES = 6  # how many samples must all read "closed" before
+CLOSE_CONFIRM_INTERVAL_S = 0.06   # ...believing it (glitchy sensor tolerance:
+                                    # 6*0.06s = 360ms sustained close required)
+TRIGGER_ON_LOW = True      # gift wrap in front of sensor inverted the reading:
+                            # now True=closed, False=open (re-measure via REPL
+                            # if you unwrap/rewrap and it acts backwards again)
 
 SAMPLE_RATE = 22050
 
@@ -92,16 +90,30 @@ def box_is_open():
     return sensor_triggered(ir.value)
 
 
+def box_confirmed_closed():
+    """Debounced close check: a single closed reading can be electrical
+    noise (e.g. a current blip from the I2S amp on a shared 3.3V rail, or a
+    generally marginal/noisy sensor), so require CLOSE_CONFIRM_SAMPLES
+    consecutive closed readings, spread over CLOSE_CONFIRM_INTERVAL_S each,
+    before believing it's a real close."""
+    for _ in range(CLOSE_CONFIRM_SAMPLES):
+        if box_is_open():
+            return False
+        time.sleep(CLOSE_CONFIRM_INTERVAL_S)
+    return True
+
+
 def interruptible_sleep(duration):
     """Sleep in small steps, polling the sensor so a mid-sequence box-close
     aborts immediately instead of waiting out the full sleep. Returns False
-    the moment the box closes, True once the full duration elapsed open."""
+    once a real (debounced) close is seen, True once the full duration
+    elapsed open."""
     # time.monotonic() (not time.time()) — CircuitPython's time.time() only
     # has whole-second resolution on this board, which made durations wildly
     # inaccurate here.
     end = time.monotonic() + duration
     while time.monotonic() < end:
-        if not box_is_open():
+        if not box_is_open() and box_confirmed_closed():
             return False
         time.sleep(0.02)
     return True
