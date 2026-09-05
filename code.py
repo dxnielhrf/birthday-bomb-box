@@ -34,7 +34,10 @@ LCD_ROWS = 2
 
 DEBOUNCE_S = 0.08          # 80ms debounce
 TRIGGER_ON_LOW = False     # measured: sensor reads False=closed, True=open
-                            # verify on your own sensor via the REPL (see README)
+                            # verify on your own sensor via the REPL (see README) —
+                            # wrapping the box in reflective gift paper right in
+                            # front of the sensor can invert this reading, since
+                            # the sensor then mostly sees the paper, not the lid
 
 SAMPLE_RATE = 22050
 

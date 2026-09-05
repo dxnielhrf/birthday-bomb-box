@@ -118,6 +118,20 @@ Note which value corresponds to "box closed" vs "box open" for your
 specific sensor/mounting, then set `TRIGGER_ON_LOW` in `code.py`
 accordingly (`False` if open reads `True`, `True` if open reads `False`).
 
+## Troubleshooting
+
+**Sensor logic flips (or stops responding) after wrapping the box in gift
+paper.** Reflective/shiny wrapping paper sitting loosely right in front of
+the IR sensor can itself reflect the beam, so the sensor mostly "sees" the
+paper instead of the lid. Symptoms: open/closed behavior is exactly
+inverted from before wrapping, and/or waving a hand in front of the sensor
+from outside does nothing. Fix: re-run the sensor test above with the box
+in its final wrapped state, and set `TRIGGER_ON_LOW` to match what you
+measure now — if the inversion is clean and consistent, flipping this one
+constant is enough. For a more robust long-term fix, cut a small slit/hole
+in the paper directly in front of the sensor lens (or build a small
+cardboard tunnel around it) so it points at the lid, not the paper.
+
 ## Notes / gotchas found while building this
 
 - CircuitPython's `str` has no `.ljust()`/`.rjust()` — pad strings manually.
